@@ -1,6 +1,6 @@
 import tkinter as tk
 from tkinter import messagebox, ttk
-from tkcalendar import Calendar
+from tkcalendar import DateEntry
 import sqlite3
 from datetime import datetime
 import random
@@ -31,16 +31,8 @@ def initialize_database():
     conn.commit()
     conn.close()
 
-def add_health_data(water, sleep, exercise):
-    conn = sqlite3.connect(DB_FILE)
-    cursor = conn.cursor()
-    date = datetime.now().strftime('%Y-%m-%d')
-    cursor.execute("INSERT INTO health_data (date, water_intake, sleep_hours, exercise_minutes) VALUES (?, ?, ?, ?)",
-                   (date, water, sleep, exercise))
-    conn.commit()
-    conn.close()
-    messagebox.showinfo("Success", "Health data updated successfully!")
 
+# === Data Management ===
 def fetch_data_by_date_range(start_date, end_date):
     conn = sqlite3.connect(DB_FILE)
     cursor = conn.cursor()
@@ -74,69 +66,9 @@ def fetch_weekly_averages():
         "avg_sleep": result[1] if result[1] else 0,
         "avg_exercise": result[2] if result[2] else 0
     }
-# Function to calculate recommended water intake based on exercise and weight
-# Fitbit API Setup
-FITBIT_API_URL = "https://api.fitbit.com/1/user/-/activities/date/today.json"  # For exercise data
-FITBIT_SLEEP_API_URL = "https://api.fitbit.com/1.2/user/-/sleep/date/today.json"  # For sleep data
-
-# Function to fetch activity data from Fitbit API
-def get_fitbit_activity_data(access_token):
-    headers = {
-        "Authorization": f"Bearer {access_token}"
-    }
-    response = requests.get(FITBIT_API_URL, headers=headers)
-    if response.status_code == 200:
-        activity_data = response.json()
-        steps = activity_data['activities'][0]['steps']
-        calories = activity_data['activities'][0]['calories']
-        return steps, calories
-    else:
-        return None, None
-
-# Function to fetch sleep data from Fitbit API
-def get_fitbit_sleep_data(access_token):
-    headers = {
-        "Authorization": f"Bearer {access_token}"
-    }
-    response = requests.get(FITBIT_SLEEP_API_URL, headers=headers)
-    if response.status_code == 200:
-        sleep_data = response.json()
-        sleep_hours = sleep_data['sleep'][0]['duration'] / 3600000  # Convert milliseconds to hours
-        return sleep_hours
-    else:
-        return None
 
 
-# Function to calculate recommended water intake based on exercise and weight
-def recommend_water_intake(exercise_minutes, weight_kg):
-    # Example formula: Drink 30 ml per kg of body weight + additional 1.5 ml per minute of exercise
-    base_water = weight_kg * 30  # 30 ml per kg
-    exercise_water = exercise_minutes * 1.5  # 1.5 ml per minute of exercise
-    total_water = base_water + exercise_water
-    return total_water
-
-# Function to add health data (with water intake recommendation)
-def add_health_data(water, sleep, exercise, weight):
-    recommended_water = recommend_water_intake(exercise, weight)
-    conn = sqlite3.connect(DB_FILE)
-    cursor = conn.cursor()
-    date = datetime.now().strftime('%Y-%m-%d')
-    cursor.execute("INSERT INTO health_data (date, water_intake, sleep_hours, exercise_minutes) VALUES (?, ?, ?, ?)",
-                   (date, water, sleep, exercise))
-    conn.commit()
-    conn.close()
-
-    # Provide feedback to the user
-    if water < recommended_water:
-        message = (f"Your recommended water intake for today is {recommended_water:.2f} ml based on your exercise and weight. "
-                   "Make sure to hydrate properly!")
-    else:
-        message = "You're doing great! Keep up the good hydration."
-
-    messagebox.showinfo("Success", message)
-
-
-# Function to provide exercise feedback
+# === Feedback and Utilities ===
 def exercise_feedback(exercise_minutes):
     if exercise_minutes < 30:
         return "Try to get at least 30 minutes of exercise today to stay active and healthy."
@@ -146,35 +78,24 @@ def exercise_feedback(exercise_minutes):
         return "Excellent! You're hitting your exercise goals. Keep it up!"
 
 
-
-
-
-def recommend_water_intake(exercise_minutes, weight_kg):
-    # Example formula: Drink 30 ml per kg of body weight + additional 1.5 ml per minute of exercise
-    base_water = weight_kg * 30  # 30 ml per kg
-    exercise_water = exercise_minutes * 1.5  # 1.5 ml per minute of exercise
-    total_water = base_water + exercise_water
-    return total_water
-
-# Function to add health data (with water intake recommendation)
-def add_health_data(water, sleep, exercise, weight):
-    recommended_water = recommend_water_intake(exercise, weight)
-    conn = sqlite3.connect(DB_FILE)
-    cursor = conn.cursor()
-    date = datetime.now().strftime('%Y-%m-%d')
-    cursor.execute("INSERT INTO health_data (date, water_intake, sleep_hours, exercise_minutes) VALUES (?, ?, ?, ?)",
-                   (date, water, sleep, exercise))
-    conn.commit()
-    conn.close()
-
-    # Provide feedback to the user
-    if water < recommended_water:
-        message = (f"Your recommended water intake for today is {recommended_water:.2f} ml based on your exercise and weight. "
-                   "Make sure to hydrate properly!")
+def sleep_feedback(sleep_hours):
+    if sleep_hours < 7:
+        return "Sleep is crucial for recovery. Try to aim for 7-9 hours of sleep each night for better health."
+    elif 7 <= sleep_hours <= 9:
+        return "Great job! You're getting a healthy amount of sleep. Keep it up!"
     else:
-        message = "You're doing great! Keep up the good hydration."
+        return "You’re sleeping well! Just make sure not to oversleep as it may affect your productivity."
 
-    messagebox.showinfo("Success", message)
+
+def generate_health_tip():
+    tips = [
+        "Stay consistent with your exercise routine!",
+        "Drink water regularly to keep yourself hydrated.",
+        "Incorporate more fruits and vegetables into your meals.",
+        "Take short breaks during work to stretch and relax.",
+        "Prioritize a good night's sleep for better health."
+    ]
+    return random.choice(tips)
 
 
 def get_weather(city):
@@ -189,7 +110,11 @@ def get_weather(city):
         return None, "Weather API Error"
 
 
-def visualize_data(data):
+def visualize_data():
+    start_date = "2024-01-01"  # Example range
+    end_date = datetime.now().strftime("%Y-%m-%d")
+    data = fetch_data_by_date_range(start_date, end_date)
+
     if not data:
         messagebox.showerror("Error", "No data available for the selected date range.")
         return
@@ -201,17 +126,26 @@ def visualize_data(data):
 
     fig, ax = plt.subplots(3, 1, figsize=(8, 12))
 
-    ax[0].bar(dates, water, color='blue', alpha=0.7)
+    # Line graph for Water Intake
+    ax[0].plot(dates, water, marker='o', color='blue', linestyle='-', label="Water Intake")
     ax[0].set_title("Water Intake (Liters)")
     ax[0].set_ylabel("Liters")
+    ax[0].legend()
+    ax[0].grid(True)
 
-    ax[1].bar(dates, sleep, color='green', alpha=0.7)
+    # Line graph for Sleep Hours
+    ax[1].plot(dates, sleep, marker='o', color='green', linestyle='-', label="Sleep Hours")
     ax[1].set_title("Sleep Hours")
     ax[1].set_ylabel("Hours")
+    ax[1].legend()
+    ax[1].grid(True)
 
-    ax[2].bar(dates, exercise, color='orange', alpha=0.7)
+    # Line graph for Exercise Minutes
+    ax[2].plot(dates, exercise, marker='o', color='orange', linestyle='-', label="Exercise Minutes")
     ax[2].set_title("Exercise Minutes")
     ax[2].set_ylabel("Minutes")
+    ax[2].legend()
+    ax[2].grid(True)
 
     plt.tight_layout()
 
@@ -221,25 +155,6 @@ def visualize_data(data):
     canvas = FigureCanvasTkAgg(fig, master=window)
     canvas.draw()
     canvas.get_tk_widget().pack()
-
-
-
-def sleep_feedback(sleep_hours):
-    if sleep_hours < 7:
-        return "Sleep is crucial for recovery. Try to aim for 7-9 hours of sleep each night for better health."
-    elif 7 <= sleep_hours <= 9:
-        return "Great job! You're getting a healthy amount of sleep. Keep it up!"
-    else:
-        return "You’re sleeping well! Just make sure not to oversleep as it may affect your productivity."
-def generate_health_tip():
-    tips = [
-        "Stay consistent with your exercise routine!",
-        "Drink water regularly to keep yourself hydrated.",
-        "Incorporate more fruits and vegetables into your meals.",
-        "Take short breaks during work to stretch and relax.",
-        "Prioritize a good night's sleep for better health."
-    ]
-    return random.choice(tips)
 
 
 # === Tkinter GUI ===
@@ -259,6 +174,11 @@ def main_window():
 
     tk.Label(root, text=greeting, font=("Arial", 14, "bold")).pack(pady=10)
 
+    # Date Picker
+    tk.Label(root, text="Select Date:").pack()
+    date_entry = DateEntry(root, width=12, background="darkblue", foreground="white", borderwidth=2)
+    date_entry.pack(pady=5)
+
     # Input Fields
     tk.Label(root, text="Water Intake (Liters):").pack()
     water_entry = tk.Entry(root)
@@ -272,16 +192,13 @@ def main_window():
     exercise_entry = tk.Entry(root)
     exercise_entry.pack()
 
-    # Buttons
+    # Submit Button
     def submit_data():
         try:
             water = float(water_entry.get())
             sleep = float(sleep_entry.get())
             exercise = float(exercise_entry.get())
 
-
-
-            # Call feedback functions
             feedback = exercise_feedback(exercise)
             sleep_feedback_message = sleep_feedback(sleep)
 
@@ -292,8 +209,7 @@ def main_window():
 
     tk.Button(root, text="Submit", command=submit_data).pack(pady=10)
 
-
-
+    # Weekly Averages
     def show_weekly_averages():
         averages = fetch_weekly_averages()
         avg_message = (
@@ -330,7 +246,7 @@ def main_window():
     root.mainloop()
 
 
-# === Initialize Database and Launch App ===
+# === Program Entry Point ===
 if __name__ == "__main__":
     initialize_database()
     main_window()
