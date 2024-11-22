@@ -1,0 +1,8 @@
+pandas==1.5.3
+matplotlib==3.8.1
+seaborn==0.12.2
+tkintertable==1.3.3  # Optional, if using Tkinter GUI
+streamlit==1.26.0    # Optional, if using Streamlit for the web interface
+reportlab==3.6.14
+schedule==1.2.0      # For reminders
+openpyxl==3.1.2      # For exporting Excel files
